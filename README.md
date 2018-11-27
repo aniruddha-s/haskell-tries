@@ -1,2 +1,2 @@
 # haskell-tries
-Haskell implementation of Hash Array Mapped Tries and its application
+Haskell implementation of various tries and its applications
