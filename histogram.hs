@@ -2,7 +2,7 @@ import           Data.Char          (isAlpha, isPunctuation, toLower)
 import           Data.Hashable      (hash)
 -- import qualified Data.HashMap       as HM
 import           Data.List
-import           Data.Map.Strict    (Map)
+-- import           Data.Map.Strict    (Map)
 import qualified Data.Map.Strict    as Map
 import           Data.Typeable      (typeOf)
 import           System.Environment (getArgs)
@@ -19,15 +19,19 @@ processFile str = let
       in [trimmed | word <- chunks lower, let trimmed = trim word, trimmed /= ""]
 
 
-insertion :: [String] -> Map k a -> Map k a
+insertion :: Num a => [String] -> Map.Map Int a -> Map.Map Int a
+insertion []     countMap = countMap
 insertion (x:xs) countMap = if Map.member (hash x) countMap
-                                then Map.alter (+1) (hash x) countMap
-                                else Map.insert (hash x) 1 countMap
+                            then (insertion xs (Map.alter (incMaybe) (hash x) countMap))
+                            else (insertion xs (Map.insert (hash x) 1 countMap))
+
+incMaybe :: Num a => Maybe a -> Maybe a
+incMaybe x = case x of
+                Nothing -> Nothing
+                Just a  -> Just (a + 1)
 
 hashWords :: String -> Int
 hashWords s = hash s
-
-
 
 main :: IO()
 main = do
@@ -37,5 +41,6 @@ main = do
            else do
                   fileContent <- readFile (args!!0)
                   let countMap = Map.empty
-                  insertion (processFile fileContent) countMap
-                  print (processFile fileContent)
+                      cleaned = processFile fileContent
+                      result = insertion (cleaned) countMap
+                  print (result)
