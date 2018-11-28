@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 import           Data.Char          (isAlpha, isPunctuation, toLower)
 import           Data.Hashable      (hash)
 -- import qualified Data.HashMap       as HM
@@ -19,10 +21,10 @@ processFile str = let
       in [trimmed | word <- chunks lower, let trimmed = trim word, trimmed /= ""]
 
 
-insertion :: [String] -> Map k a -> Map k a
-insertion (x:xs) countMap = if Map.member (hash x) countMap
-                                then Map.alter (+1) (hash x) countMap
-                                else Map.insert (hash x) 1 countMap
+-- insertion :: [String] -> Map k a -> Map k a
+-- insertion (x:xs) countMap = if Map.member (hash x) countMap
+--                                 then Map.alter (+1) (hash x) countMap
+--                                 else Map.insert (hash x) 1 countMap
 
 hashWords :: String -> Int
 hashWords s = hash s
@@ -39,3 +41,6 @@ main = do
                   let countMap = Map.empty
                   insertion (processFile fileContent) countMap
                   print (processFile fileContent)
+              where insertion (x:xs) countMap = if Map.member (hash x) countMap
+                                              then Map.alter (+1) (hash x) countMap
+                                              else Map.insert (hash x) 1 countMap
