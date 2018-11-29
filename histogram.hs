@@ -48,8 +48,9 @@ lookupWords (x:xs) countMap countList = lookupWords xs countMap (aux x)
                                   Just value -> countList ++ [(x, value)]
 
 
-{- In this implementation, we want to further reduce chances of collision in the map, by maintaining
-a list of word, count pairs as the value for the hash as the key. This implementation is still under progress. -}
+{- In this implementation, we want to further reduce chances of collision in the
+map, by maintaining a list of (word, count) tuples as the value for the hash of
+the word as the key. This implementation is still under progress. -}
 -- insertionTuple :: Num a => [String] -> Map.Map Int [(String, a)] -> Map.Map Int [(String, a)]
 -- insertionTuple []     countMap = countMap
 -- insertionTuple (x:xs) countMap = if Map.member (hash x) countMap
