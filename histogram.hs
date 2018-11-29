@@ -1,3 +1,6 @@
+{-# LANGUAGE CPP #-}
+{-# OPTIONS -Wall #-}
+
 import           Data.Char          (isAlpha, isPunctuation, toLower)
 import           Data.Hashable      (hash)
 -- import qualified Data.HashMap       as HM
