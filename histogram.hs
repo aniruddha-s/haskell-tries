@@ -1,4 +1,7 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-
+Names: Jainey and Aniruddha
+Time spent on assignment: 3 hours
+-}
 
 import           Data.Char          (isAlpha, isPunctuation, toLower)
 import           Data.Hashable      (hash)
@@ -43,6 +46,24 @@ lookupWords (x:xs) countMap countList = lookupWords xs countMap (aux x)
         where aux word = case Map.lookup (hash word) countMap of
                                   Nothing    -> countList ++ [(x, 0)]
                                   Just value -> countList ++ [(x, value)]
+
+
+{- In this implementation, we want to further reduce chances of collision in the map, by maintaining
+a list of word, count pairs as the value for the hash as the key. This implementation is still under progress. -}
+-- insertionTuple :: Num a => [String] -> Map.Map Int [(String, a)] -> Map.Map Int [(String, a)]
+-- insertionTuple []     countMap = countMap
+-- insertionTuple (x:xs) countMap = if Map.member (hash x) countMap
+--                             then tupleMaybe x countMap
+--                             else (insertionTuple xs (Map.insert (hash x) [(x, 1)] countMap))
+--
+-- tupleMaybe element map = if element `elem` fst (Map.elems map)
+--                            then Map.alter (incMaybeTuple element) (hash x) map
+--                            else (insertionTuple xs (Map.alter (incMaybeTuple) (hash x) countMap))
+--
+-- incMaybeTuple :: Num a => Maybe [(String, a)] -> Maybe [(String, a)]
+-- incMaybeTuple element x = case x of
+--                               Nothing     -> Nothing
+--                               Just (_, a) -> Just (_, a + 1)
 
 
 main :: IO()
