@@ -1,32 +1,80 @@
 {-# OPTIONS -Wall #-}
 
-module HashArrayMppedTrie where
-import Data.Sequence
+module HashArrayMappedTrie where
+import qualified Data.Sequence as Seq
 import Data.Hashable
 import Data.Bits
+import Data.List
 
-data HAMT k v = Empty
-                | Leaf (k, v)
+newtype HAMT k v = HAMT (Maybe (HAMTX k v))
+  deriving (Show, Read, Eq)
+
+data HAMTX k v =  Leaf (k, v)
                 | CollisionLeaf [(k, v)]
-                | Internal Bitmap (Seq (HAMT k v))
+                | Internal Bitmap (Seq.Seq (HAMTX k v))
   deriving (Show, Read, Eq)
 
 type Bitmap = Int
 
+width = finiteBitSize $ (maxBound :: Int)
+
+stride = fromIntegral $ floor $ logBase (fromIntegral 2) (fromIntegral width)
+
 -- Constuctor for an empty HAMT. Will probably add some convenience constructors later
 hamtEmpty :: Hashable k => HAMT k v
-hamtEmpty = Empty
+hamtEmpty = HAMT Nothing
 
 -- Insert is incomplete and partially broken at this point, bitmap values are not consistent while descending levels
-hamtInsert :: Hashable k => (k, v) -> HAMT k v -> HAMT k v
-hamtInsert (k', v') t' = aux h' (k', v') lvls t'
-  where aux h e lv Empty | lv <= 0   = (Leaf e)
-                         | otherwise = Internal (bit (high5bits h) :: Int) (singleton (aux (shiftR h 5) e (lv - 1) Empty))
-        h'   = hash k'
-        lvls = (quot (finiteBitSize h') 5) + 1
+hamtInsert :: (Eq k, Hashable k) => (k, v) -> HAMT k v -> HAMT k v
+hamtInsert (k', v') (HAMT ht) = case ht of
+                          Nothing -> HAMT (Just (auxEmpty h' (k', v') lvls))
+                          Just t' -> HAMT (Just (aux h' (k', v') lvls t'))
+  where aux _ e _  (CollisionLeaf xs) = CollisionLeaf (replaceInList e xs)
+        aux _ (k2, v2) _  (Leaf (k1, v1)) | k1 == k2  = Leaf (k1, v2)
+                                          | otherwise = CollisionLeaf [(k2, v2), (k1, v1)]
+        aux h e lv (Internal bm hmts) = let
+                                        bmidx = highsixbits h
+                                        seqidx = getIndexFor bmidx bm in
+                                        if testBit bm (bmidx)
+                                        then Internal bm (Seq.update seqidx (aux (shiftL h stride) e (lv - 1) (Seq.index hmts seqidx)) hmts)
+                                        else Internal (setBit bm bmidx) (Seq.insertAt seqidx (auxEmpty (shiftL h stride) e (lv - 1)) hmts)
+        auxEmpty h e lv | lv <= 0   = Leaf e
+                        | otherwise = Internal (bit (highsixbits h) :: Int) (Seq.singleton (auxEmpty (shiftL h stride) e (lv - 1)))
+        h'    = hash k'
+        lvls  = quot (finiteBitSize h') stride + 1
 
--- function for extracting five msbs
-high5bits :: Int -> Int
-high5bits b = rotateR ((.&.) b mask) steps
-  where mask = rotateL (32 :: Int) steps 
-        steps = ((finiteBitSize b) - 4)
+-- function for extracting six msbs
+highsixbits :: Int -> Int
+highsixbits b = rotateR (b .&. mask) steps
+  where mask = shiftL ((width - 1) :: Int) steps 
+        steps = finiteBitSize b - stride
+
+getIndexFor :: Int -> Int -> Int
+getIndexFor bmidx bm = popCount (bm .&. ((bit bmidx) - 1))
+
+replaceInList :: Eq k => (k, v) -> [(k, v)] -> [(k, v)]
+replaceInList x xs = x:(deleteBy (\(k1,_) (k2,_) -> k1 == k2) x xs)
+
+hamtGetEntry :: (Eq k, Hashable k) => k -> HAMT k v -> Maybe(k,v)
+hamtGetEntry k' (HAMT ht) = case ht of
+                        Nothing -> Nothing
+                        Just t  -> aux h' k' t
+  where aux _ k (CollisionLeaf xs)    = find (\ (k1,_) -> k1 == k) xs
+        aux _ k (Leaf (k1,v1))       = if k1 == k then Just (k1,v1) else Nothing
+        aux h k (Internal bm hmts) = let
+                                      bmidx = highsixbits h
+                                      seqidx = getIndexFor bmidx bm in
+                                      if testBit bm (bmidx)
+                                      then aux (shiftL h stride) k (Seq.index hmts seqidx)
+                                      else Nothing
+        h'    = hash k'
+
+hamtGet :: (Eq k, Hashable k) => k -> HAMT k v -> Maybe v
+hamtGet k ht = case hamtGetEntry k ht of
+                Nothing     -> Nothing
+                Just (_,v1) -> Just v1
+
+hamtContainsKey :: (Eq k, Hashable k) => k -> HAMT k v -> Bool
+hamtContainsKey k ht = case hamtGetEntry k ht of
+                          Nothing     -> False
+                          Just (k1,_) -> True
