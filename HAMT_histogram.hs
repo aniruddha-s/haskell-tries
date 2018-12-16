@@ -1,3 +1,5 @@
+import           HAMT
+
 {-# OPTIONS -Wall #-}
 {-
 Names: Jainey and Aniruddha
@@ -5,7 +7,7 @@ Time spent on assignment: 3 hours
 -}
 
 import           Data.Char          (isAlpha, isPunctuation, toLower)
-import           Data.Hashable      (hash)
+import           Data.Hashable
 import           Data.List
 import qualified Data.Map.Strict    as Map
 import           Data.Typeable      (typeOf)
@@ -27,11 +29,16 @@ processFile str = let
 
 {- This function is used to insert the terms from the novel into the Map by hashing
  the words and increasing the count. -}
-insertion :: Num a => [String] -> Map.Map Int a -> Map.Map Int a
+insertion :: (Eq k, Hashable k, Num v) => [k] -> HAMT k v -> HAMT k v
 insertion []     countMap = countMap
-insertion (x:xs) countMap = if Map.member (hash x) countMap
-                            then (insertion xs (Map.alter (incMaybe) (hash x) countMap))
-                            else (insertion xs (Map.insert (hash x) 1 countMap))
+insertion (x:xs) countMap = if HAMT.hamtContainsKey x countMap
+                              then (insertion xs (HAMT.hamtInsert (x, incValue x countMap) countMap))
+                              else (insertion xs (HAMT.hamtInsert (x, 1) countMap))
+
+incValue :: (Eq k, Hashable k, Num v) => k -> HAMT k v -> v
+incValue k h = case HAMT.hamtGet k h of
+                          Nothing -> 0
+                          Just value -> value + 1
 
 incMaybe :: Num a => Maybe a -> Maybe a
 incMaybe x = case x of
@@ -41,31 +48,14 @@ incMaybe x = case x of
 
 {-This fuction get the words from the list and looks it up in the map, and maintains a
 count of the words found in the map. -}
-lookupWords :: Num a => [String] -> Map.Map Int a -> [(String, a)] -> [(String, a)]
+lookupWords :: (Eq k, Hashable k, Num v) => [k] -> HAMT k v -> [(k, v)] -> [(k, v)]
 lookupWords []     _        countList = countList
 lookupWords (x:xs) countMap countList = lookupWords xs countMap (aux x)
-        where aux word = case Map.lookup (hash word) countMap of
+        where aux word = case HAMT.hamtGetEntry x countMap of
                                   Nothing    -> countList ++ [(x, 0)]
-                                  Just value -> countList ++ [(x, value)]
+                                  Just (_, value) -> countList ++ [(x, value)]
 
 
-{- In this implementation, we want to further reduce chances of collision in the
-map, by maintaining a list of (word, count) tuples as the value for the hash of
-the word as the key. This implementation is still under progress. -}
--- insertionTuple :: Num a => [String] -> Map.Map Int [(String, a)] -> Map.Map Int [(String, a)]
--- insertionTuple []     countMap = countMap
--- insertionTuple (x:xs) countMap = if Map.member (hash x) countMap
---                             then tupleMaybe x countMap
---                             else (insertionTuple xs (Map.insert (hash x) [(x, 1)] countMap))
---
--- tupleMaybe element map = if element `elem` fst (Map.elems map)
---                            then Map.alter (incMaybeTuple element) (hash x) map
---                            else (insertionTuple xs (Map.alter (incMaybeTuple) (hash x) countMap))
---
--- incMaybeTuple :: Num a => Maybe [(String, a)] -> Maybe [(String, a)]
--- incMaybeTuple element x = case x of
---                               Nothing     -> Nothing
---                               Just (_, a) -> Just (_, a + 1)
 
 
 main :: IO()
@@ -76,11 +66,11 @@ main = do
            else do
                   fileContent <- readFile (args!!0)
                   sWords <- readFile (args!!1)
-                  let countMap = Map.empty
+                  let hamtempty = HAMT.hamtEmpty
                       wordList = lines sWords
                       cleaned = processFile fileContent
-                      result = insertion (cleaned) countMap
+                      result = insertion (cleaned) hamtempty
                       counts = lookupWords wordList result []
-                  -- print (cleaned)
+                  print (HAMT.hamtGetEntry "the" result)
                   -- print (result)
                   print (counts)

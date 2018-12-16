@@ -1,10 +1,10 @@
 {-# OPTIONS -Wall #-}
 
-module HashArrayMappedTrie where
+module HAMT where
+import           Data.Bits
+import           Data.Hashable
+import           Data.List
 import qualified Data.Sequence as Seq
-import Data.Hashable
-import Data.Bits
-import Data.List
 
 newtype HAMT k v = HAMT (Maybe (HAMTX k v))
   deriving (Show, Read, Eq)
@@ -46,7 +46,7 @@ hamtInsert (k', v') (HAMT ht) = case ht of
 -- function for extracting six msbs
 highsixbits :: Int -> Int
 highsixbits b = rotateR (b .&. mask) steps
-  where mask = shiftL ((width - 1) :: Int) steps 
+  where mask = shiftL ((width - 1) :: Int) steps
         steps = finiteBitSize b - stride
 
 getIndexFor :: Int -> Int -> Int
