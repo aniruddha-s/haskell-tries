@@ -5,6 +5,7 @@ import qualified Data.Sequence as Seq
 import Data.Hashable
 import Data.Bits
 import Data.List
+import Data.Maybe
 
 newtype HAMT k v = HAMT (Maybe (HAMTX k v))
   deriving (Show, Read, Eq)
@@ -23,6 +24,10 @@ stride = fromIntegral $ floor $ logBase (fromIntegral 2) (fromIntegral width)
 -- Constuctor for an empty HAMT. Will probably add some convenience constructors later
 hamtEmpty :: Hashable k => HAMT k v
 hamtEmpty = HAMT Nothing
+
+
+hamtFromList :: (Eq k, Hashable k) => [(k, v)] -> HAMT k v
+hamtFromList = foldr (\a t -> hamtInsert a t) hamtEmpty
 
 -- Insert is incomplete and partially broken at this point, bitmap values are not consistent while descending levels
 hamtInsert :: (Eq k, Hashable k) => (k, v) -> HAMT k v -> HAMT k v
@@ -69,12 +74,21 @@ hamtGetEntry k' (HAMT ht) = case ht of
                                       else Nothing
         h'    = hash k'
 
+
 hamtGet :: (Eq k, Hashable k) => k -> HAMT k v -> Maybe v
 hamtGet k ht = case hamtGetEntry k ht of
                 Nothing     -> Nothing
                 Just (_,v1) -> Just v1
 
+
 hamtContainsKey :: (Eq k, Hashable k) => k -> HAMT k v -> Bool
-hamtContainsKey k ht = case hamtGetEntry k ht of
-                          Nothing     -> False
-                          Just (k1,_) -> True
+hamtContainsKey k ht = isJust $ hamtGetEntry k ht
+
+
+hamtSize :: HAMT k v -> Int
+hamtSize (HAMT ht) = case ht of
+                      Nothing -> 0
+                      Just t  -> auxsize t
+  where auxsize (CollisionLeaf xs) = length xs
+        auxsize (Leaf _)           = 1
+        auxsize (Internal _ hmts)  = foldr (\x sz -> sz + auxsize x) 0 hmts
