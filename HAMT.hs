@@ -16,8 +16,9 @@ data HAMTX k v =  Leaf (k, v)
 
 type Bitmap = Int
 
-width = finiteBitSize $ maxBound :: Int
+width = finiteBitSize $ (maxBound :: Int)
 
+stride = fromIntegral $ floor $ logBase (fromIntegral 2) (fromIntegral width)
 
 -- Constuctor for an empty HAMT. Will probably add some convenience constructors later
 hamtEmpty :: Hashable k => HAMT k v
@@ -32,24 +33,48 @@ hamtInsert (k', v') (HAMT ht) = case ht of
         aux _ (k2, v2) _  (Leaf (k1, v1)) | k1 == k2  = Leaf (k1, v2)
                                           | otherwise = CollisionLeaf [(k2, v2), (k1, v1)]
         aux h e lv (Internal bm hmts) = let
-                                        bmidx = high6bits h
+                                        bmidx = highsixbits h
                                         seqidx = getIndexFor bmidx bm in
                                         if testBit bm (bmidx)
-                                        then Internal bm (Seq.update seqidx (aux (shiftL h 6) e (lv - 1) (Seq.index hmts seqidx)) hmts)
-                                        else Internal (setBit bm bmidx) (Seq.insertAt seqidx (auxEmpty (shiftL h 6) e (lv - 1)) hmts)
+                                        then Internal bm (Seq.update seqidx (aux (shiftL h stride) e (lv - 1) (Seq.index hmts seqidx)) hmts)
+                                        else Internal (setBit bm bmidx) (Seq.insertAt seqidx (auxEmpty (shiftL h stride) e (lv - 1)) hmts)
         auxEmpty h e lv | lv <= 0   = Leaf e
-                        | otherwise = Internal (bit (high6bits h) :: Int) (Seq.singleton (auxEmpty (shiftL h 6) e (lv - 1)))
+                        | otherwise = Internal (bit (highsixbits h) :: Int) (Seq.singleton (auxEmpty (shiftL h stride) e (lv - 1)))
         h'    = hash k'
-        lvls  = quot (finiteBitSize h') 6 + 1
+        lvls  = quot (finiteBitSize h') stride + 1
 
 -- function for extracting six msbs
-high6bits :: Int -> Int
-high6bits b = rotateR (b .&. mask) steps
-  where mask = shiftL (63 :: Int) steps 
-        steps = finiteBitSize b - 6
+highsixbits :: Int -> Int
+highsixbits b = rotateR (b .&. mask) steps
+  where mask = shiftL ((width - 1) :: Int) steps 
+        steps = finiteBitSize b - stride
 
 getIndexFor :: Int -> Int -> Int
 getIndexFor bmidx bm = popCount (bm .&. ((bit bmidx) - 1))
 
 replaceInList :: Eq k => (k, v) -> [(k, v)] -> [(k, v)]
 replaceInList x xs = x:(deleteBy (\(k1,_) (k2,_) -> k1 == k2) x xs)
+
+hamtGetEntry :: (Eq k, Hashable k) => k -> HAMT k v -> Maybe(k,v)
+hamtGetEntry k' (HAMT ht) = case ht of
+                        Nothing -> Nothing
+                        Just t  -> aux h' k' t
+  where aux _ k (CollisionLeaf xs)    = find (\ (k1,_) -> k1 == k) xs
+        aux _ k (Leaf (k1,v1))       = if k1 == k then Just (k1,v1) else Nothing
+        aux h k (Internal bm hmts) = let
+                                      bmidx = highsixbits h
+                                      seqidx = getIndexFor bmidx bm in
+                                      if testBit bm (bmidx)
+                                      then aux (shiftL h stride) k (Seq.index hmts seqidx)
+                                      else Nothing
+        h'    = hash k'
+
+hamtGet :: (Eq k, Hashable k) => k -> HAMT k v -> Maybe v
+hamtGet k ht = case hamtGetEntry k ht of
+                Nothing     -> Nothing
+                Just (_,v1) -> Just v1
+
+hamtContainsKey :: (Eq k, Hashable k) => k -> HAMT k v -> Bool
+hamtContainsKey k ht = case hamtGetEntry k ht of
+                          Nothing     -> False
+                          Just (k1,_) -> True
