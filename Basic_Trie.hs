@@ -1,5 +1,10 @@
 import           Control.Monad
-import qualified Data.Map.Strict as Map
+import           Data.Char          (isAlpha, isPunctuation, toLower)
+import           Data.Hashable      (hash)
+import           Data.List          (dropWhile, dropWhileEnd)
+import qualified Data.Map.Strict    as Map
+import           Data.Typeable      (typeOf)
+import           System.Environment (getArgs)
 
 data Trie a = Trie (Map.Map a (Trie a)) Bool
 
@@ -35,13 +40,35 @@ insertTrie :: Ord a => Trie a -> [[a]] -> Trie a
 insertTrie t []     = t
 insertTrie t (x:xs) = insertTrie (insert x t) xs
 
+{- This function is used to clean the text file and only store the alphabetic charecters
+and dispose the other type of characters. -}
+processFile :: String -> [String]
+processFile str = let
+      goodChars c = isAlpha(c) || c `elem` "’`'"
+      chunks s = let (word, notGood) = span goodChars s
+                     (_, rest) = span (not . goodChars) notGood
+                 in word : (if rest == "" then [] else chunks rest)
+      trim = (dropWhile isPunctuation) . (dropWhileEnd isPunctuation)
+      lower = map toLower str
+      in [trimmed | word <- chunks lower, let trimmed = trim word, trimmed /= ""]
+
+auxmain :: Trie Char -> IO()
+auxmain t = do
+             print ("Enter input to check for autocomplete: ")
+             line <- getLine
+             unless (line == "*q") $ do
+             print (autocomplete line t)
+             auxmain t
+
 main :: IO()
 main = do
-         let new = insert "abc" empty
-             s = ["public", "domain", "in", "the", "u", "s", "unless", "a", "copyright", "notice", "is", "included", "thus", "we", "do", "not", "necessarily", "particular", "paper", "edition", "people", "start", "at", "pg", "search", "project", "gutenberg"]
-             result = insertTrie new s
-         line <- getLine
-         unless (line == "*q") $ do
-           print (autocomplete line result)
-           main
-         -- print (autocomplete "a" cfg)
+         args <- getArgs
+         if length args < 1
+            then print "Usage: TextFile.txt"
+            else do
+                  fileContent <- readFile (args!!0)
+                  let cleaned = processFile fileContent
+                      new = insert "abc" empty
+                      result = insertTrie new cleaned
+                  auxmain result
+         print ("Quitting! ")
