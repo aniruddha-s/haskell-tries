@@ -42,7 +42,7 @@ incMaybe x = case x of
 {-This fuction get the words from the list and looks it up in the map, and maintains a
 count of the words found in the map. -}
 lookupWords :: Num a => [String] -> Map.Map Int a -> [(String, a)] -> [(String, a)]
-lookupWords []     countMap countList = countList
+lookupWords []     _        countList = countList
 lookupWords (x:xs) countMap countList = lookupWords xs countMap (aux x)
         where aux word = case Map.lookup (hash word) countMap of
                                   Nothing    -> countList ++ [(x, 0)]
@@ -81,6 +81,6 @@ main = do
                       cleaned = processFile fileContent
                       result = insertion (cleaned) countMap
                       counts = lookupWords wordList result []
-                  -- print (cleaned)
+                  print (cleaned)
                   -- print (result)
-                  print (counts)
+                  -- print (counts)
