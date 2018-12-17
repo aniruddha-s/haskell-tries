@@ -2,7 +2,7 @@ import           HAMT
 
 {-# OPTIONS -Wall #-}
 {-
-Names: Jainey and Aniruddha
+Names:
 Time spent on assignment: 3 hours
 -}
 
@@ -12,6 +12,8 @@ import           Data.List
 import qualified Data.Map.Strict    as Map
 import           Data.Typeable      (typeOf)
 import           System.Environment (getArgs)
+import           Data.Ord
+import           Data.Function
 
 
 {- This function is used to clean the text file and only store the alphabetic charecters
@@ -56,6 +58,11 @@ lookupWords (x:xs) countMap countList = lookupWords xs countMap (aux x)
                                   Just (_, value) -> countList ++ [(x, value)]
 
 
+sortBySecond :: Ord v => [(k, v)] -> [(k, v)]
+sortBySecond t = sortBy (compare `on` (\(a,b)->b)) t
+
+histogram :: Ord v => [(k, v)] -> [(k, v)]
+histogram xs = sortBySecond xs
 
 
 main :: IO()
@@ -71,6 +78,5 @@ main = do
                       cleaned = processFile fileContent
                       result = insertion (cleaned) hamtempty
                       counts = lookupWords wordList result []
-                  print (HAMT.hamtGetEntry "the" result)
-                  -- print (result)
-                  print (counts)
+                  mapM_ go (histogram counts)
+               where go (h, l) = putStrLn $ show h ++ " " ++ replicate l '*'
