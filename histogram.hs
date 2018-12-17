@@ -81,8 +81,6 @@ main = do
                       cleaned = processFile fileContent
                       result = insertion (cleaned) countMap
                       counts = lookupWords wordList result []
-                  -- print (cleaned)
+                  print (cleaned)
                   -- print (result)
                   -- print (counts)
-                  mapM_ go (histogram [("useless",6),("valueless",1),("varied",10),("varletry",0),("vasty",4),("vulnerable",0),("watchdog",0),("water drop",0),("water fly",0),("well-behaved",0),("well-bred",0),("well-educated",0),("well-read",0)])
-                      where go (h, l) = putStrLn $ show h ++ " " ++ replicate l '*'
