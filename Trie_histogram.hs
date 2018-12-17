@@ -1,10 +1,3 @@
-import           Trie
-
-{-
-Names:
-Time spent on assignment: 3 hours
--}
-
 import           Data.Char          (isAlpha, isPunctuation, toLower)
 import           Data.Function
 import           Data.Hashable
@@ -13,6 +6,7 @@ import qualified Data.Map.Strict    as Map
 import           Data.Ord
 import           Data.Typeable      (typeOf)
 import           System.Environment (getArgs)
+import           Trie
 
 
 {- This function is used to clean the text file and only store the alphabetic charecters
@@ -32,9 +26,19 @@ processFile str = let
  the words and increasing the count. -}
 insertion :: (Eq v, Ord k, Num v) => [k] -> Trie k v -> Trie k v
 insertion []     countMap = countMap
-insertion (x:xs) countMap = if Trie.lookup [x] countMap
-                              then (insertion xs (Trie.insert [x] 1 countMap))
+insertion (x:xs) countMap = if (Trie.getValue [x] countMap) /= (-1)
+                              then (insertion xs (Trie.insert [x] ((Trie.getValue [x] countMap)+1) countMap))
                               else (insertion xs (Trie.insert [x] 1 countMap))
+
+
+lookupWords :: (Eq v, Ord k, Num v) => [k] -> Trie k v -> [(k, v)] -> [(k, v)]
+lookupWords []     _        countList = countList
+lookupWords (x:xs) countMap countList = lookupWords xs countMap (aux x)
+        where aux word = if (Trie.getValue [x] countMap) == (-1)
+                                  then countList ++ [(x, 0)]
+                                   else countList ++ [(x, (Trie.getValue [x] countMap))]
+
+
 
 sortBySecond :: Ord v => [(k, v)] -> [(k, v)]
 sortBySecond t = sortBy (compare `on` (\(a,b)->b)) t
@@ -50,11 +54,14 @@ main = do
            else do
                   fileContent <- readFile (args!!0)
                   sWords <- readFile (args!!1)
-                  let hamtempty = Trie.empty
+                  let empty = Trie.empty
                       wordList = lines sWords
                       cleaned = processFile fileContent
-                      result = insertion (cleaned) hamtempty
-                  print("Done.")
+                      result = insertion (cleaned) empty
+                      counts = lookupWords wordList result []
+                  mapM_ go (histogram counts)
+               where go (h, l) = putStrLn $ show h ++ " " ++ replicate l '*'
+
                --        counts = lookupWords wordList result []
                --    mapM_ go (histogram counts)
                -- where go (h, l) = putStrLn $ show h ++ " " ++ replicate l '*'

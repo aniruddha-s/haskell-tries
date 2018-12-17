@@ -1,5 +1,3 @@
-
-
 module Trie where
 import           Control.Monad
 import           Data.Char          (isAlpha, isPunctuation, toLower)
@@ -29,14 +27,6 @@ lookup :: (Eq v, Ord k, Num v) => [k] -> Trie k v -> Bool
 lookup []     (Trie _ v) = (v /= -1)
 lookup (c:cs) (Trie t _) = maybe False (Trie.lookup cs) (Map.lookup c t)
 
--- getValue :: (Ord k, Num v) => [k] -> Trie k v -> v
--- getValue [] (Trie _ v)     = v
--- getValue (c:cs) (Trie t _) = maybe -1 (Trie. cs) (Map.lookup c t)
-
-
--- main :: IO()
--- main = do
---         let a = insert "jainey" 3 empty
---             b = insert "jainey" 4 a
---         print (Trie.lookup "jainey" b)
-        -- print getValue "jainey"
+getValue :: (Ord k, Num v) => [k] -> Trie k v -> v
+getValue [] (Trie _ v)     = v
+getValue (c:cs) (Trie t _) = maybe (-1) (Trie.getValue cs) (Map.lookup c t)
