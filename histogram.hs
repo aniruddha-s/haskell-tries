@@ -81,6 +81,6 @@ main = do
                       cleaned = processFile fileContent
                       result = insertion (cleaned) countMap
                       counts = lookupWords wordList result []
-                  -- print (cleaned)
+                  print (cleaned)
                   -- print (result)
-                  print (counts)
+                  -- print (counts)
