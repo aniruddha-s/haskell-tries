@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# OPTIONS -Wall #-}
 
 module HAMT where
@@ -27,8 +28,10 @@ hamtEmpty = HAMT Nothing
 
 
 hamtFromList :: (Eq k, Hashable k) => [(k, v)] -> HAMT k v
-hamtFromList = foldr (\a t -> hamtInsert a t) hamtEmpty
+hamtFromList =  hamtInsertFromList hamtEmpty
 
+hamtInsertFromList :: (Eq k, Hashable k) => HAMT k v -> [(k, v)] -> HAMT k v
+hamtInsertFromList ht = foldr (\a t -> hamtInsert a t) ht
 
 hamtInsert :: (Eq k, Hashable k) => (k, v) -> HAMT k v -> HAMT k v
 hamtInsert (k', v') (HAMT ht) = case ht of
@@ -52,7 +55,7 @@ hamtInsert (k', v') (HAMT ht) = case ht of
 hamtInsertWith :: (Eq k, Hashable k) => (v -> v -> v) -> (k, v) -> HAMT k v -> HAMT k v
 hamtInsertWith f (k,v) t = case hamtGetEntry k t of
                             Nothing      -> hamtInsert (k,v) t
-                            Just (k1,v1) -> hamtInsert (k, f v v1) t
+                            Just (_,v1) -> hamtInsert (k, f v v1) t
 
 
 -- function for extracting six msbs
@@ -103,6 +106,7 @@ hamtSize (HAMT ht) = case ht of
         auxsize (Leaf _)           = 1
         auxsize (Internal _ hmts)  = foldr (\x sz -> sz + auxsize x) 0 hmts
 
+
 hamtAsList :: HAMT k v -> [(k,v)]
 hamtAsList (HAMT ht) = case ht of
                       Nothing -> []
@@ -110,3 +114,40 @@ hamtAsList (HAMT ht) = case ht of
   where auxlist (CollisionLeaf xs) = xs
         auxlist (Leaf x)           = [x]
         auxlist (Internal _ hmts)  = foldr (\x xs -> auxlist x ++ xs) [] hmts
+
+
+hamtUnion :: (Eq k, Hashable k) => HAMT k v -> HAMT k v -> HAMT k v
+hamtUnion h1 h2 = hamtInsertFromList h1 $ hamtAsList h2
+
+
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ <= 800
+instance (Eq k, Hashable k) => Monoid (HAMT k v) where
+  mappend = hamtUnion
+  mempty  = hamtEmpty
+#elif defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ > 800
+instance (Eq k, Hashable k) => Semigroup (HAMT k v) where
+  (<>) = hamtUnion
+instance (Eq k, Hashable k) => Monoid (HAMT k v) where
+  mempty = hamtEmpty
+#endif
+
+
+hamtFoldr :: (a -> b -> b) -> b -> HAMT k a -> b
+hamtFoldr fn buf (HAMT ht) = case ht of
+                            Nothing -> buf
+                            Just t  -> auxfoldr fn buf t
+  where auxfoldr f b (CollisionLeaf xs) = foldr (\(_,v') b'-> f v' b') b xs
+        auxfoldr f b (Leaf (_,v1))      = f v1 b
+        auxfoldr f b (Internal _ hmts)  = foldr (\x b' -> auxfoldr f b' x) b hmts
+
+instance Foldable (HAMT k) where  
+    foldr = hamtFoldr
+
+
+hamtFmap :: (a -> b) -> HAMT k a -> HAMT k b
+hamtFmap fn (HAMT ht) = case ht of
+                          Nothing -> HAMT Nothing
+                          Just t  -> HAMT (Just (auxfmap fn t))
+  where auxfmap f (CollisionLeaf xs) = CollisionLeaf (fmap (\(k1,v1) -> (k1,f v1)) xs)
+        auxfmap f (Leaf (k1,v1))     = Leaf (k1,f v1)
+        auxfmap f (Internal b hmts)  = Internal b (fmap (auxfmap f) hmts)
